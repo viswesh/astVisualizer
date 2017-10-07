@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <!--Import Google Icon Font-->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <!--Import materialize.css-->
+    <link type="text/css" rel="stylesheet" href="node_modules/materialize-css/dist/css/materialize.css"  media="screen,projection"/>
+    <link rel="stylesheet" href="node_modules/prismjs/themes/prism.css">
+    <link rel="stylesheet" href="node_modules/codeflask/src/codeflask.css">
+    <style>
+        #my-code-wrapper {
+            width:350px;
+            height: 100vh;
+            position:relative;
+        }
+
+        #ast-wrapper {
+            width:auto;
+            height: 100vh;
+            position:relative;
+        }
+
+        .node circle {
+            fill: #fff;
+            stroke: #EC6F75;
+            stroke-width: 3px;
+        }
+
+        .node text {
+            font: 12px sans-serif;
+        }
+
+        .link {
+            fill: none;
+            stroke: #ccc;
+            stroke-width: 2px;
+        }
+
+
+    </style>
+
+    <!--Let browser know website is optimized for mobile-->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+</head>
+
+<body>
+
+<!-- Navbar goes here -->
+<nav>
+    <div class="nav-wrapper">
+        <a href="#" class="brand-logo right">AST Visualizer</a>
+        <ul id="nav-mobile" class="left">
+            <li><a href="/">Visualizer</a></li>
+            <li><a href="about.html">About</a></li>
+        </ul>
+    </div>
+</nav>
+
+
+<!-- Page Layout here -->
+<div class="row">
+
+    <div class="col s12 m4 l3"> <!-- Note that "m4 l3" was added -->
+        <!-- Grey navigation panel
+
+              This content will be:
+          3-columns-wide on large screens,
+          4-columns-wide on medium screens,
+          12-columns-wide on small screens  -->
+        <div id="my-code-wrapper" data-language="javascript"></div>
+
+    </div>
+
+    <div class="col s12 m8 l9"> <!-- Note that "m8 l9" was added -->
+        <!-- Teal page content
+
+              This content will be:
+          9-columns-wide on large screens,
+          8-columns-wide on medium screens,
+          12-columns-wide on small screens  -->
+        <div class="row">
+            <div class="col s12">
+                <ul class="tabs">
+                    <li class="tab col s3"><a class="active" href="#test1">Tree</a></li>
+                    <li class="tab col s3"><a href="#test2">Usage</a></li>
+                    <li class="tab col s3"><a href="#test3">AST</a></li>
+                </ul>
+            </div>
+            <div id="test1" class="col s12"></div>
+            <div id="test2" class="col s12"></div>
+            <div id="test3" class="col s12">
+                <div id="ast-wrapper" data-language="javascript"></div>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+
+<!--Import jQuery before materialize.js-->
+<script type="text/javascript" src="https://code.jquery.com/jquery-3.2.1.min.js"></script>
+<script src="node_modules/materialize-css/dist/js/materialize.js"></script>
+<script src="node_modules/codeflask/src/codeflask.js" ></script>
+<script src="node_modules/prismjs/prism.js" ></script>
+<script src="node_modules/esprima/dist/esprima.js"></script>
+<script src="node_modules/ast-traverse/ast-traverse.js"></script>
+<script src="node_modules/d3/build/d3.js"></script>
+<script src="src/js/main.js"></script>
+</body>
+</html>

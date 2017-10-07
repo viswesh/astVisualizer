@@ -1,0 +1,18 @@
+{
+  "name": "ASTVisualizer",
+  "version": "1.0.0",
+  "description": "Tool to visualize and asset abstract syntax tree",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Viswesh",
+  "license": "MIT",
+  "dependencies": {
+    "ast-traverse": "^0.1.1",
+    "codeflask": "^0.2.0",
+    "d3": "^4.11.0",
+    "esprima": "^4.0.0",
+    "materialize-css": "^0.100.2"
+  }
+}
