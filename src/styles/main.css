@@ -1,0 +1,27 @@
+#my-code-wrapper {
+  width: 350px;
+  height: 100vh;
+  position: relative;
+}
+
+#ast-wrapper {
+  width: auto;
+  height: 100vh;
+  position: relative;
+}
+
+.node circle {
+  fill: #fff;
+  stroke: #ec6f75;
+  stroke-width: 3px;
+}
+
+.node text {
+  font: 12px sans-serif;
+}
+
+.link {
+  fill: none;
+  stroke: #ccc;
+  stroke-width: 2px;
+}
