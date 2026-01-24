@@ -1,38 +1,18 @@
 import * as d3 from 'd3';
-import * as esprima from 'esprima';
 import CodeFlask from 'codeflask';
 import $ from 'jquery';
 import 'materialize-css/dist/css/materialize.min.css';
 import 'prismjs/themes/prism.css';
 import '../styles/main.css';
 
-import { traverse } from './ast-traverse';
-import type { ASTNode, TreeNode, NodeTypeCount, ParsedAST } from '../types';
+import { parseCode, countNodeTypes, cleanAstForDisplay } from './ast-utils';
+import type { TreeNode } from '../types';
+import type { ParseOutcome } from './ast-utils';
 
 const DEFAULT_CODE = `function init() {
  console.log('hello world');
 }
 init();`;
-
-function generateAst(code: string): ParsedAST | null {
-  try {
-    const ast = esprima.parseScript(code) as unknown as ParsedAST;
-
-    traverse(ast, {
-      pre: (node: ASTNode) => {
-        if (node.body && !Array.isArray(node.body)) {
-          node.body = [node.body];
-        }
-        node.children = (node.body as ASTNode[]) ?? [];
-      },
-    });
-
-    return ast;
-  } catch (error) {
-    console.error('Parse error:', error);
-    return null;
-  }
-}
 
 function renderTree(container: HTMLElement, ast: TreeNode): void {
   const margin = { top: 40, right: 90, bottom: 50, left: 90 };
@@ -87,21 +67,19 @@ function renderTree(container: HTMLElement, ast: TreeNode): void {
 }
 
 function renderAnalysis(container: HTMLElement, ast: TreeNode): void {
-  const hash: NodeTypeCount = {};
-
-  traverse(ast, {
-    post: (node: ASTNode) => {
-      if (node.type) {
-        hash[node.type] = (hash[node.type] ?? 0) + 1;
-      }
-    },
-  });
+  const counts = countNodeTypes(ast);
 
   const $table = $('<table class="highlight"/>');
-  const $tbody = $table.append('<tbody></tbody>');
+  const $thead = $('<thead><tr><th>Node Type</th><th>Count</th></tr></thead>');
+  const $tbody = $('<tbody></tbody>');
 
-  for (const prop in hash) {
-    $tbody.append(`<tr><td>${prop}</td><td>${hash[prop]}</td></tr>`);
+  $table.append($thead);
+  $table.append($tbody);
+
+  const sortedEntries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+
+  for (const [nodeType, count] of sortedEntries) {
+    $tbody.append(`<tr><td>${nodeType}</td><td>${count}</td></tr>`);
   }
 
   $(container).append($table);
@@ -113,36 +91,60 @@ function renderAst(ast: TreeNode): void {
     readonly: true,
   });
 
-  const cleanAst = JSON.parse(JSON.stringify(ast));
-  removeChildren(cleanAst);
-
-  const code = JSON.stringify(cleanAst, null, 4);
+  const cleanAst = cleanAstForDisplay(ast);
+  const code = JSON.stringify(cleanAst, null, 2);
   astEditor.updateCode(code);
 }
 
-function removeChildren(node: ASTNode): void {
-  if (node && typeof node === 'object') {
-    delete node.children;
-    for (const key in node) {
-      const value = node[key];
-      if (Array.isArray(value)) {
-        value.forEach((item) => removeChildren(item as ASTNode));
-      } else if (typeof value === 'object' && value !== null) {
-        removeChildren(value as ASTNode);
-      }
-    }
+function renderError(result: ParseOutcome): void {
+  if (result.success) return;
+
+  const { error } = result;
+  const treeContainer = document.getElementById('test1');
+  const analysisContainer = document.getElementById('test2');
+  const astContainer = document.getElementById('ast-wrapper');
+
+  const locationInfo =
+    error.line !== undefined
+      ? ` at line ${error.line}, column ${error.column}`
+      : '';
+
+  const errorHtml = `
+    <div class="card-panel red lighten-4" style="margin: 20px;">
+      <span class="red-text text-darken-4">
+        <i class="material-icons tiny" style="vertical-align: middle;">error</i>
+        <strong>Parse Error${locationInfo}</strong>
+      </span>
+      <p class="red-text text-darken-2" style="margin-top: 8px; font-family: monospace;">
+        ${escapeHtml(error.message)}
+      </p>
+    </div>
+  `;
+
+  if (treeContainer) {
+    treeContainer.innerHTML = errorHtml;
+  }
+  if (analysisContainer) {
+    analysisContainer.innerHTML = '';
+  }
+  if (astContainer) {
+    astContainer.innerHTML = '';
   }
 }
 
-function renderVisuals(ast: ParsedAST | null): void {
-  if (!ast) {
-    const container = document.getElementById('test1');
-    if (container) {
-      container.innerHTML = '<p class="red-text">Invalid JavaScript syntax</p>';
-    }
+function escapeHtml(text: string): string {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function renderVisuals(result: ParseOutcome): void {
+  if (!result.success) {
+    renderError(result);
     return;
   }
 
+  const { ast } = result;
   const treeContainer = document.getElementById('test1');
   const analysisContainer = document.getElementById('test2');
 
@@ -157,21 +159,33 @@ function renderVisuals(ast: ParsedAST | null): void {
   renderAst(ast);
 }
 
+function clearContainers(): void {
+  $('#test1').empty();
+  $('#test2').empty();
+  $('#ast-wrapper').empty();
+}
+
+let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
 function init(): void {
   const flask = new CodeFlask('#my-code-wrapper', {
     language: 'js',
   });
 
   flask.updateCode(DEFAULT_CODE);
-  renderVisuals(generateAst(DEFAULT_CODE));
+  renderVisuals(parseCode(DEFAULT_CODE));
 
   flask.onUpdate((code: string) => {
-    $('#test1').empty();
-    $('#test2').empty();
-    $('#ast-wrapper').empty();
+    // Debounce parsing to avoid excessive re-renders during typing
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+    }
 
-    const ast = generateAst(code);
-    renderVisuals(ast);
+    debounceTimer = setTimeout(() => {
+      clearContainers();
+      const result = parseCode(code);
+      renderVisuals(result);
+    }, 150);
   });
 }
 
