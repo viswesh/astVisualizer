@@ -73,17 +73,17 @@ describe('traverse', () => {
   it('should use custom skipProperty function', () => {
     const ast: ASTNode = {
       type: 'Program',
-      loc: { type: 'Location' },
+      metadata: { type: 'Metadata' },
       body: [{ type: 'Statement' }],
     };
 
     const pre = vi.fn();
-    const skipProperty = vi.fn((prop: string) => prop === 'loc');
+    const skipProperty = vi.fn((prop: string) => prop === 'metadata');
 
     traverse(ast, { pre, skipProperty });
 
     expect(pre).toHaveBeenCalledTimes(2);
-    expect(skipProperty).toHaveBeenCalledWith('loc', expect.anything());
+    expect(skipProperty).toHaveBeenCalledWith('metadata', expect.anything());
   });
 
   it('should traverse arrays correctly', () => {

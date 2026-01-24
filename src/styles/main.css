@@ -1,27 +1,91 @@
 #my-code-wrapper {
   width: 350px;
-  height: 100vh;
+  height: calc(100vh - 120px);
   position: relative;
 }
 
 #ast-wrapper {
   width: auto;
-  height: 100vh;
+  height: calc(100vh - 120px);
   position: relative;
 }
 
+/* Tree visualization */
 .node circle {
   fill: #fff;
   stroke: #ec6f75;
   stroke-width: 3px;
+  transition: all 0.2s ease;
+}
+
+.node.node--clickable circle {
+  cursor: pointer;
+}
+
+.node.node--clickable:hover circle {
+  fill: #fce4ec;
+  stroke-width: 4px;
 }
 
 .node text {
   font: 12px sans-serif;
+  pointer-events: none;
 }
 
 .link {
   fill: none;
   stroke: #ccc;
   stroke-width: 2px;
+}
+
+/* Code highlight animation */
+.code-highlight {
+  animation: pulse 0.5s ease-out;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Parser selector styling */
+#parser-selector .input-field {
+  margin: 0;
+}
+
+#parser-selector select {
+  display: block;
+}
+
+/* Export buttons */
+#export-buttons .btn-small {
+  text-transform: none;
+}
+
+/* Controls bar */
+.controls-bar {
+  padding: 10px 20px;
+  background: #f5f5f5;
+  border-bottom: 1px solid #ddd;
+}
+
+/* Responsive adjustments */
+@media only screen and (max-width: 600px) {
+  #my-code-wrapper {
+    width: 100%;
+    height: 300px;
+  }
+
+  #ast-wrapper {
+    height: 400px;
+  }
 }
