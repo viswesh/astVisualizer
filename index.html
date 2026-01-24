@@ -3,7 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AST Visualizer</title>
+    <meta name="description" content="Visualize JavaScript Abstract Syntax Trees (AST) with multiple parser support" />
+    <meta name="theme-color" content="#ee6e73" />
+    <title>AST Visualizer - JavaScript AST Explorer</title>
     <link
       href="https://fonts.googleapis.com/icon?family=Material+Icons"
       rel="stylesheet"
@@ -11,50 +13,75 @@
   </head>
 
   <body>
+    <!-- Skip link for accessibility -->
+    <a href="#my-code-wrapper" class="skip-link">Skip to code editor</a>
+
     <!-- Navbar -->
-    <nav>
+    <nav role="navigation" aria-label="Main navigation">
       <div class="nav-wrapper">
         <a href="index.html" class="brand-logo right">AST Visualizer</a>
         <ul id="nav-mobile" class="left">
-          <li><a href="index.html">Visualizer</a></li>
+          <li><a href="index.html" aria-current="page">Visualizer</a></li>
           <li><a href="about.html">About</a></li>
         </ul>
       </div>
     </nav>
 
-    <!-- Page Layout -->
-    <div class="row" style="margin-bottom: 0;">
+    <!-- Main content -->
+    <main>
       <!-- Controls Bar -->
-      <div class="col s12" style="padding: 10px 20px; background: #f5f5f5; border-bottom: 1px solid #ddd;">
-        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
-          <div id="parser-selector" style="min-width: 150px;"></div>
-          <div id="export-buttons"></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="row">
-      <div class="col s12 m4 l3">
-        <div id="my-code-wrapper" data-language="javascript"></div>
-      </div>
-
-      <div class="col s12 m8 l9">
-        <div class="row">
-          <div class="col s12">
-            <ul class="tabs">
-              <li class="tab col s3"><a class="active" href="#test1">Tree</a></li>
-              <li class="tab col s3"><a href="#test2">Usage</a></li>
-              <li class="tab col s3"><a href="#test3">AST</a></li>
-            </ul>
-          </div>
-          <div id="test1" class="col s12"></div>
-          <div id="test2" class="col s12"></div>
-          <div id="test3" class="col s12">
-            <div id="ast-wrapper" data-language="javascript"></div>
+      <div class="row" style="margin-bottom: 0;">
+        <div class="col s12 controls-bar" role="toolbar" aria-label="Visualization controls">
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+            <div id="parser-selector" style="min-width: 150px;"></div>
+            <div id="export-buttons" style="display: flex; align-items: center; gap: 8px;"></div>
           </div>
         </div>
       </div>
-    </div>
+
+      <div class="row">
+        <!-- Code Editor Panel -->
+        <div class="col s12 m4 l3">
+          <h2 id="code-editor-label" class="sr-only">JavaScript Code Editor</h2>
+          <div
+            id="my-code-wrapper"
+            data-language="javascript"
+            role="textbox"
+            aria-labelledby="code-editor-label"
+            aria-multiline="true"
+          ></div>
+        </div>
+
+        <!-- Visualization Panel -->
+        <div class="col s12 m8 l9">
+          <div class="row">
+            <div class="col s12">
+              <ul class="tabs" role="tablist" aria-label="AST views">
+                <li class="tab col s3" role="presentation">
+                  <a class="active" href="#test1" role="tab" aria-selected="true" aria-controls="test1">Tree</a>
+                </li>
+                <li class="tab col s3" role="presentation">
+                  <a href="#test2" role="tab" aria-selected="false" aria-controls="test2">Usage</a>
+                </li>
+                <li class="tab col s3" role="presentation">
+                  <a href="#test3" role="tab" aria-selected="false" aria-controls="test3">AST</a>
+                </li>
+              </ul>
+            </div>
+            <div id="test1" class="col s12" role="tabpanel" aria-labelledby="tab-tree">
+              <!-- Tree visualization renders here -->
+            </div>
+            <div id="test2" class="col s12" role="tabpanel" aria-labelledby="tab-usage">
+              <!-- Usage analysis renders here -->
+            </div>
+            <div id="test3" class="col s12" role="tabpanel" aria-labelledby="tab-ast">
+              <h2 class="sr-only">Raw AST JSON</h2>
+              <div id="ast-wrapper" data-language="javascript" aria-label="AST JSON output"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
 
     <script type="module" src="/src/ts/main.ts"></script>
   </body>

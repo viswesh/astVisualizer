@@ -15,14 +15,53 @@ const DEFAULT_CODE = `function init() {
 }
 init();`;
 
+const THEME_KEY = 'ast-visualizer-theme';
+
 // Global state
 let currentCode = DEFAULT_CODE;
 let currentParser: ParserType = 'esprima';
 let currentAst: TreeNode | null = null;
 let codeFlaskInstance: CodeFlask | null = null;
+let currentTheme: 'light' | 'dark' = 'light';
 
 // Node click handler type
 type NodeClickHandler = (node: TreeNode) => void;
+
+// Theme management
+function getPreferredTheme(): 'light' | 'dark' {
+  const saved = localStorage.getItem(THEME_KEY);
+  if (saved === 'dark' || saved === 'light') {
+    return saved;
+  }
+  return window.matchMedia('(prefers-color-scheme: dark)').matches
+    ? 'dark'
+    : 'light';
+}
+
+function setTheme(theme: 'light' | 'dark'): void {
+  currentTheme = theme;
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem(THEME_KEY, theme);
+  updateThemeToggleIcon();
+}
+
+function toggleTheme(): void {
+  setTheme(currentTheme === 'light' ? 'dark' : 'light');
+}
+
+function updateThemeToggleIcon(): void {
+  const icon = document.querySelector('#theme-toggle i');
+  if (icon) {
+    icon.textContent = currentTheme === 'light' ? 'dark_mode' : 'light_mode';
+  }
+  const btn = document.getElementById('theme-toggle');
+  if (btn) {
+    btn.setAttribute(
+      'aria-label',
+      currentTheme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'
+    );
+  }
+}
 
 function highlightCodeRange(loc: SourceLocation | undefined): void {
   if (!loc || !codeFlaskInstance) return;
@@ -30,45 +69,33 @@ function highlightCodeRange(loc: SourceLocation | undefined): void {
   const wrapper = document.querySelector('#my-code-wrapper');
   if (!wrapper) return;
 
-  // Remove existing highlights
   wrapper.querySelectorAll('.code-highlight').forEach((el) => el.remove());
 
   const pre = wrapper.querySelector('pre');
-  const code = wrapper.querySelector('code');
-  if (!pre || !code) return;
+  if (!pre) return;
 
-  const lines = currentCode.split('\n');
   const startLine = loc.start.line - 1;
   const endLine = loc.end.line - 1;
 
-  // Calculate character positions
-  let startOffset = 0;
-  for (let i = 0; i < startLine; i++) {
-    startOffset += lines[i].length + 1;
-  }
-  startOffset += loc.start.column;
-
-  let endOffset = 0;
-  for (let i = 0; i < endLine; i++) {
-    endOffset += lines[i].length + 1;
-  }
-  endOffset += loc.end.column;
-
-  // Create highlight overlay
   const highlight = document.createElement('div');
   highlight.className = 'code-highlight';
+  highlight.setAttribute('role', 'presentation');
+
+  const accentColor =
+    currentTheme === 'dark' ? 'rgba(255, 138, 128, 0.3)' : 'rgba(236, 111, 117, 0.3)';
+  const borderColor = currentTheme === 'dark' ? '#ff8a80' : '#EC6F75';
+
   highlight.style.cssText = `
     position: absolute;
-    background: rgba(236, 111, 117, 0.3);
-    border: 2px solid #EC6F75;
+    background: ${accentColor};
+    border: 2px solid ${borderColor};
     border-radius: 3px;
     pointer-events: none;
     z-index: 10;
   `;
 
-  // Position based on line numbers
-  const lineHeight = 21; // Approximate line height
-  const charWidth = 8.4; // Approximate character width for monospace
+  const lineHeight = 21;
+  const charWidth = 8.4;
 
   highlight.style.top = `${startLine * lineHeight + 10}px`;
   highlight.style.left = `${loc.start.column * charWidth + 10}px`;
@@ -84,7 +111,6 @@ function highlightCodeRange(loc: SourceLocation | undefined): void {
   pre.style.position = 'relative';
   pre.appendChild(highlight);
 
-  // Auto-remove after 3 seconds
   setTimeout(() => highlight.remove(), 3000);
 }
 
@@ -100,12 +126,15 @@ function renderTree(
   const treemap = d3.tree<TreeNode>().size([width, height]);
   const hierarchy = d3.hierarchy<TreeNode>(ast, (d) => d.children);
   const nodes = treemap(hierarchy);
+  const nodeList = nodes.descendants();
 
   const svg = d3
     .select(container)
     .append('svg')
     .attr('width', width + margin.left + margin.right)
-    .attr('height', height + margin.top + margin.bottom);
+    .attr('height', height + margin.top + margin.bottom)
+    .attr('role', 'img')
+    .attr('aria-label', 'Abstract Syntax Tree visualization');
 
   const g = svg
     .append('g')
@@ -113,19 +142,20 @@ function renderTree(
 
   // Add links
   g.selectAll('.link')
-    .data(nodes.descendants().slice(1))
+    .data(nodeList.slice(1))
     .enter()
     .append('path')
     .attr('class', 'link')
+    .attr('aria-hidden', 'true')
     .attr('d', (d) => {
       const parent = d.parent!;
       return `M${d.x},${d.y}C${d.x},${(d.y + parent.y) / 2} ${parent.x},${(d.y + parent.y) / 2} ${parent.x},${parent.y}`;
     });
 
-  // Add nodes
+  // Add nodes with keyboard navigation
   const node = g
     .selectAll('.node')
-    .data(nodes.descendants())
+    .data(nodeList)
     .enter()
     .append('g')
     .attr(
@@ -134,10 +164,44 @@ function renderTree(
         `node ${d.children ? 'node--internal' : 'node--leaf'} ${d.data.loc ? 'node--clickable' : ''}`
     )
     .attr('transform', (d) => `translate(${d.x},${d.y})`)
+    .attr('tabindex', (d) => (d.data.loc ? '0' : '-1'))
+    .attr('role', 'treeitem')
+    .attr('aria-label', (d) => {
+      const loc = d.data.loc;
+      if (loc) {
+        return `${d.data.type}, line ${loc.start.line} to ${loc.end.line}. Press Enter to highlight in code.`;
+      }
+      return d.data.type;
+    })
     .style('cursor', (d) => (d.data.loc ? 'pointer' : 'default'))
     .on('click', (_event, d) => {
       if (onNodeClick && d.data.loc) {
         onNodeClick(d.data);
+        announceToScreenReader(`Highlighted ${d.data.type} in code editor`);
+      }
+    })
+    .on('keydown', (event: KeyboardEvent, d) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        if (onNodeClick && d.data.loc) {
+          onNodeClick(d.data);
+          announceToScreenReader(`Highlighted ${d.data.type} in code editor`);
+        }
+      }
+      // Arrow key navigation
+      const currentIndex = nodeList.indexOf(d);
+      let nextIndex = -1;
+
+      if (event.key === 'ArrowDown' && currentIndex < nodeList.length - 1) {
+        nextIndex = currentIndex + 1;
+      } else if (event.key === 'ArrowUp' && currentIndex > 0) {
+        nextIndex = currentIndex - 1;
+      }
+
+      if (nextIndex >= 0) {
+        event.preventDefault();
+        const nextNode = container.querySelectorAll('.node')[nextIndex] as HTMLElement;
+        nextNode?.focus();
       }
     });
 
@@ -156,23 +220,36 @@ function renderTree(
     .attr('dy', '.35em')
     .attr('y', (d) => (d.children ? -20 : 20))
     .style('text-anchor', 'middle')
+    .attr('aria-hidden', 'true')
     .text((d) => d.data.type);
 
-  // Add tooltip
+  // Tooltip
   node.append('title').text((d) => {
     const loc = d.data.loc;
     if (loc) {
-      return `${d.data.type}\nLine ${loc.start.line}:${loc.start.column} - ${loc.end.line}:${loc.end.column}\nClick to highlight in code`;
+      return `${d.data.type}\nLine ${loc.start.line}:${loc.start.column} - ${loc.end.line}:${loc.end.column}\nClick or press Enter to highlight in code`;
     }
     return d.data.type;
   });
 }
 
+function announceToScreenReader(message: string): void {
+  const announcer = document.getElementById('sr-announcer');
+  if (announcer) {
+    announcer.textContent = message;
+    setTimeout(() => {
+      announcer.textContent = '';
+    }, 1000);
+  }
+}
+
 function renderAnalysis(container: HTMLElement, ast: TreeNode): void {
   const counts = countNodeTypes(ast);
 
-  const $table = $('<table class="highlight"/>');
-  const $thead = $('<thead><tr><th>Node Type</th><th>Count</th></tr></thead>');
+  const $table = $(
+    '<table class="highlight" role="table" aria-label="AST node type counts"/>'
+  );
+  const $thead = $('<thead><tr><th scope="col">Node Type</th><th scope="col">Count</th></tr></thead>');
   const $tbody = $('<tbody></tbody>');
 
   $table.append($thead).append($tbody);
@@ -211,9 +288,9 @@ function renderError(result: ParseOutcome): void {
       : '';
 
   const errorHtml = `
-    <div class="card-panel red lighten-4" style="margin: 20px;">
+    <div class="card-panel red lighten-4" role="alert" style="margin: 20px;">
       <span class="red-text text-darken-4">
-        <i class="material-icons tiny" style="vertical-align: middle;">error</i>
+        <i class="material-icons tiny" style="vertical-align: middle;" aria-hidden="true">error</i>
         <strong>Parse Error${locationInfo}</strong>
         <span class="grey-text text-darken-1" style="margin-left: 10px;">(${parserUsed})</span>
       </span>
@@ -226,6 +303,8 @@ function renderError(result: ParseOutcome): void {
   if (treeContainer) treeContainer.innerHTML = errorHtml;
   if (analysisContainer) analysisContainer.innerHTML = '';
   if (astContainer) astContainer.innerHTML = '';
+
+  announceToScreenReader(`Parse error: ${error.message}`);
 }
 
 function escapeHtml(text: string): string {
@@ -268,7 +347,10 @@ function clearContainers(): void {
 
 // Export functions
 function exportAsJson(): void {
-  if (!currentAst) return;
+  if (!currentAst) {
+    announceToScreenReader('No AST to export');
+    return;
+  }
 
   const cleanAst = cleanAstForDisplay(currentAst);
   const json = JSON.stringify(cleanAst, null, 2);
@@ -281,6 +363,7 @@ function exportAsJson(): void {
   a.click();
 
   URL.revokeObjectURL(url);
+  announceToScreenReader('AST exported as JSON');
 }
 
 function shareAsUrl(): void {
@@ -289,18 +372,20 @@ function shareAsUrl(): void {
 
   if (url.length > 2000) {
     alert('Code is too long to share via URL. Try exporting as JSON instead.');
+    announceToScreenReader('Code too long to share via URL');
     return;
   }
 
   navigator.clipboard.writeText(url).then(() => {
     const btn = document.getElementById('share-btn');
     if (btn) {
-      const originalText = btn.textContent;
-      btn.textContent = 'Copied!';
+      const originalHtml = btn.innerHTML;
+      btn.innerHTML = '<i class="material-icons left">check</i>Copied!';
       setTimeout(() => {
-        btn.textContent = originalText;
+        btn.innerHTML = originalHtml;
       }, 2000);
     }
+    announceToScreenReader('Share URL copied to clipboard');
   });
 }
 
@@ -326,7 +411,7 @@ function renderParserSelector(): void {
 
   const html = `
     <div class="input-field" style="margin: 0;">
-      <select id="parser-select">
+      <select id="parser-select" aria-label="Select JavaScript parser">
         ${PARSERS.map(
           (p) =>
             `<option value="${p.id}" ${p.id === currentParser ? 'selected' : ''}>
@@ -334,13 +419,12 @@ function renderParserSelector(): void {
             </option>`
         ).join('')}
       </select>
-      <label>Parser</label>
+      <label for="parser-select">Parser</label>
     </div>
   `;
 
   container.innerHTML = html;
 
-  // Initialize Materialize select
   const selectEl = container.querySelector('select');
   if (selectEl) {
     // @ts-expect-error Materialize global
@@ -350,6 +434,7 @@ function renderParserSelector(): void {
       currentParser = (e.target as HTMLSelectElement).value as ParserType;
       clearContainers();
       renderVisuals(parseCode(currentCode, currentParser));
+      announceToScreenReader(`Parser changed to ${currentParser}`);
     });
   }
 }
@@ -359,33 +444,64 @@ function renderExportButtons(): void {
   if (!container) return;
 
   container.innerHTML = `
-    <a id="export-json-btn" class="btn-small waves-effect waves-light" style="margin-right: 8px;">
-      <i class="material-icons left">file_download</i>JSON
+    <button id="theme-toggle" class="theme-toggle" aria-label="Switch to dark mode" title="Toggle theme">
+      <i class="material-icons" aria-hidden="true">dark_mode</i>
+    </button>
+    <a id="export-json-btn" class="btn-small waves-effect waves-light" style="margin-right: 8px;" role="button" aria-label="Export AST as JSON file">
+      <i class="material-icons left" aria-hidden="true">file_download</i>JSON
     </a>
-    <a id="share-btn" class="btn-small waves-effect waves-light">
-      <i class="material-icons left">share</i>Share
+    <a id="share-btn" class="btn-small waves-effect waves-light" role="button" aria-label="Copy share URL to clipboard">
+      <i class="material-icons left" aria-hidden="true">share</i>Share
     </a>
   `;
 
-  document
-    .getElementById('export-json-btn')
-    ?.addEventListener('click', exportAsJson);
+  document.getElementById('theme-toggle')?.addEventListener('click', toggleTheme);
+  document.getElementById('export-json-btn')?.addEventListener('click', exportAsJson);
   document.getElementById('share-btn')?.addEventListener('click', shareAsUrl);
+
+  updateThemeToggleIcon();
+}
+
+function setupAccessibility(): void {
+  // Add screen reader announcer
+  const announcer = document.createElement('div');
+  announcer.id = 'sr-announcer';
+  announcer.className = 'sr-only';
+  announcer.setAttribute('role', 'status');
+  announcer.setAttribute('aria-live', 'polite');
+  announcer.setAttribute('aria-atomic', 'true');
+  document.body.appendChild(announcer);
 }
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 function init(): void {
-  // Check for URL parameters first
+  // Initialize theme
+  setTheme(getPreferredTheme());
+
+  // Listen for system theme changes
+  window
+    .matchMedia('(prefers-color-scheme: dark)')
+    .addEventListener('change', (e) => {
+      if (!localStorage.getItem(THEME_KEY)) {
+        setTheme(e.matches ? 'dark' : 'light');
+      }
+    });
+
+  // Setup accessibility features
+  setupAccessibility();
+
+  // Check for URL parameters
   const urlData = loadFromUrl();
   if (urlData) {
     currentCode = urlData.code;
     currentParser = urlData.parser;
   }
 
-  // Initialize code editor
+  // Initialize code editor with accessibility attributes
   const flask = new CodeFlask('#my-code-wrapper', {
     language: 'js',
+    ariaLabelledby: 'code-editor-label',
   });
   codeFlaskInstance = flask;
 
